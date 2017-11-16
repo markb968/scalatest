@@ -19,6 +19,8 @@ import collection.GenTraversable
 import scala.annotation.tailrec
 
 object GenInspectors {
+
+  val generatorSource = new File("GenInspectors.scala")
   
   import Generator._
 
@@ -2985,548 +2987,228 @@ object GenInspectors {
     override def toString = childrenContent
   }
 
-  class AsyncForEveryTemplate(colName: String, col: String, lhs: String) extends Template {
-    override val children =
-      List(
-        new ItTemplate("should pass when all elements passed for " + colName,
-          new SimpleTemplate(
-            "val col = " + col + "\n" +
-            "forEvery(col) { e => Future { assert(" + lhs + " < 4) } }"
-          )
-        ),
-        new ItTemplate("should throw TestFailedException with correct stack depth and message when at least one element failed for " + colName + " inside future block",
-          new RecoverToExceptionIfTemplate(
-            "val col = " + col,
-            "forEvery(col) { e => Future { assert(" + lhs + " != 2) } }",
-            "AsyncForEveryInspectorsSpec.scala",
-            "\"forEvery failed, because: \\n\" + \n" +
-            "\"  at \" + " + getIndexForType(colName, 2) + " + \", 2 equaled 2 (AsyncForEveryInspectorsSpec.scala:\" + (thisLineNumber - 6) + \") \\n\" + \n" +
-            "\"in \" + decorateToStringValue(prettifier, col)",
-            4)
-        ),
-        new ItTemplate("should throw TestFailedException with correct stack depth and message when at least one element failed for " + colName + " outside future block",
-          new RecoverToExceptionIfTemplate(
-            "val col = " + col,
-            "forEvery(col) { e => assert(" + lhs + " != 2); Future { assert(true) } }",
-            "AsyncForEveryInspectorsSpec.scala",
-            "\"forEvery failed, because: \\n\" + \n" +
-            "\"  at \" + " + getIndexForType(colName, 2) + " + \", 2 equaled 2 (AsyncForEveryInspectorsSpec.scala:\" + (thisLineNumber - 6) + \") \\n\" + \n" +
-            "\"in \" + decorateToStringValue(prettifier, col)",
-            4)
-        ),
-        new ItTemplate("should throw TestFailedException with correct stack depth and message when more than one element failed for " + colName + " inside future block",
-          new RecoverToExceptionIfTemplate(
-            "val col = " + col + "\n" +
-            "val itr = col." + iterator(colName) + "\n" +
-            "val first = " + getNext(colName) + getElementType(colName) + "(itr, " + getLhs(colName, "_") + " >= 2)\n" +
-            "val second = " + getNext(colName) + getElementType(colName) + "(itr, " + getLhs(colName, "_") + " >= 2)\n",
-            "forEvery(col) { e => Future { assert(" + lhs + " < 2) } }",
-            "AsyncForEveryInspectorsSpec.scala",
-            "\"forEvery failed, because: \\n\" + \n" +
-            "\"  at \" + " + getVariableIndexForType(colName, "first") + " + \", \" + " + getLhs(colName, "first") + " + \" was not less than 2 (AsyncForEveryInspectorsSpec.scala:\" + (thisLineNumber - 6) + \"), \\n\" + \n" +
-            "\"  at \" + " + getVariableIndexForType(colName, "second") + " + \", \" + " + getLhs(colName, "second") + " + \" was not less than 2 (AsyncForEveryInspectorsSpec.scala:\" + (thisLineNumber - 7) + \") \\n\" + \n" +
-            "\"in \" + decorateToStringValue(prettifier, col)",
-            4)
-        ),
-        new ItTemplate("should throw TestFailedException with correct stack depth and message when more than one element failed for " + colName + " outside future block",
-          new RecoverToExceptionIfTemplate(
-            "val col = " + col + "\n" +
-            "val itr = col." + iterator(colName) + "\n" +
-            "val first = " + getNext(colName) + getElementType(colName) + "(itr, " + getLhs(colName, "_") + " >= 2)\n" +
-            "val second = " + getNext(colName) + getElementType(colName) + "(itr, " + getLhs(colName, "_") + " >= 2)\n",
-            "forEvery(col) { e => assert(" + lhs + " < 2); Future { assert(true) } }",
-            "AsyncForEveryInspectorsSpec.scala",
-            "\"forEvery failed, because: \\n\" + \n" +
-            "\"  at \" + " + getVariableIndexForType(colName, "first") + " + \", \" + " + getLhs(colName, "first") + " + \" was not less than 2 (AsyncForEveryInspectorsSpec.scala:\" + (thisLineNumber - 6) + \"), \\n\" + \n" +
-            "\"  at \" + " + getVariableIndexForType(colName, "second") + " + \", \" + " + getLhs(colName, "second") + " + \" was not less than 2 (AsyncForEveryInspectorsSpec.scala:\" + (thisLineNumber - 7) + \") \\n\" + \n" +
-            "\"in \" + decorateToStringValue(prettifier, col)",
-            4)
-        ),
-        new ItTemplate("should propagate TestPendingException thrown from assertion for " + colName + " inside future block",
-          new SimpleTemplate(
-            "val col = " + col + "\n" +
-            "recoverToSucceededIf[exceptions.TestPendingException] {\n" +
-            "  forEvery(col) { e => Future { pending; succeed } }\n" +
-            "}"
-          )
-        ),
-        new ItTemplate("should propagate TestPendingException thrown from assertion for " + colName + " outside future block",
-          new SimpleTemplate(
-            "val col = " + col + "\n" +
-              "recoverToSucceededIf[exceptions.TestPendingException] {\n" +
-              "  forEvery(col) { e => pending; Future { succeed } }\n" +
-              "}"
-          )
-        ),
-        new ItTemplate("should propagate TestCanceledException thrown from assertion for " + colName + " inside future block",
-          new SimpleTemplate(
-            "val col = " + col + "\n" +
-            "recoverToSucceededIf[exceptions.TestCanceledException] {\n" +
-            "  forEvery(col) { e => Future { cancel; succeed } }\n" +
-            "}"
-          )
-        ),
-        new ItTemplate("should propagate TestCanceledException thrown from assertion for " + colName + " outside future block",
-          new SimpleTemplate(
-            "val col = " + col + "\n" +
-              "recoverToSucceededIf[exceptions.TestCanceledException] {\n" +
-              "  forEvery(col) { e => cancel; Future { succeed } }\n" +
-              "}"
-          )
-        ),
-        new ItTemplate("should propagate java.lang.annotation.AnnotationFormatError thrown from assertion for " + colName + " inside future block",
-          new SimpleTemplate(
-            "val col = " + col + "\n" +
-            "recoverToSucceededIf[AnnotationFormatError] {\n" +
-            "  forEvery(col) { e => Future { throw new AnnotationFormatError(\"test\"); succeed } }\n" +
-            "}"
-          )
-        ),
-        new ItTemplate("should propagate java.lang.annotation.AnnotationFormatError thrown from assertion for " + colName + " outside future block",
-          new SimpleTemplate(
-            "val col = " + col + "\n" +
-            "recoverToSucceededIf[AnnotationFormatError] {\n" +
-            "  forEvery(col) { e => throw new AnnotationFormatError(\"test\"); Future { succeed } }\n" +
-            "}"
-          )
-        ),
-        new ItTemplate("should propagate java.nio.charset.CoderMalfunctionError thrown from assertion for " + colName + " inside future block",
-          new SimpleTemplate(
-            "val col = " + col + "\n" +
-            "recoverToSucceededIf[CoderMalfunctionError] {\n" +
-            "  forEvery(col) { e => Future { throw new CoderMalfunctionError(new RuntimeException(\"test\")); succeed } }\n" +
-            "}"
-          )
-        ),
-        new ItTemplate("should propagate java.nio.charset.CoderMalfunctionError thrown from assertion for " + colName + " outside future block",
-          new SimpleTemplate(
-            "val col = " + col + "\n" +
-            "recoverToSucceededIf[CoderMalfunctionError] {\n" +
-            "  forEvery(col) { e => throw new CoderMalfunctionError(new RuntimeException(\"test\")); Future { succeed } }\n" +
-            "}"
-          )
-        ),
-        new ItTemplate("should propagate javax.xml.parsers.FactoryConfigurationError thrown from assertion for " + colName + " inside future block",
-          new SimpleTemplate(
-            "val col = " + col + "\n" +
-            "recoverToSucceededIf[FactoryConfigurationError] {\n" +
-            "  forEvery(col) { e => Future { throw new FactoryConfigurationError(); succeed } }\n" +
-            "}"
-          )
-        ),
-        new ItTemplate("should propagate javax.xml.parsers.FactoryConfigurationError thrown from assertion for " + colName + " outside future block",
-          new SimpleTemplate(
-            "val col = " + col + "\n" +
-            "recoverToSucceededIf[FactoryConfigurationError] {\n" +
-            "  forEvery(col) { e => throw new FactoryConfigurationError(); Future { succeed } }\n" +
-            "}"
-          )
-        ),
-        new ItTemplate("should propagate javax.xml.transform.TransformerFactoryConfigurationError thrown from assertion for " + colName + " inside future block",
-          new SimpleTemplate(
-            "val col = " + col + "\n" +
-            "recoverToSucceededIf[TransformerFactoryConfigurationError] {\n" +
-            "  forEvery(col) { e => Future { throw new TransformerFactoryConfigurationError(); succeed } }\n" +
-            "}"
-          )
-        ),
-        new ItTemplate("should propagate javax.xml.transform.TransformerFactoryConfigurationError thrown from assertion for " + colName + " outside future block",
-          new SimpleTemplate(
-            "val col = " + col + "\n" +
-            "recoverToSucceededIf[TransformerFactoryConfigurationError] {\n" +
-            "  forEvery(col) { e => throw new TransformerFactoryConfigurationError(); Future { succeed } }\n" +
-            "}"
-          )
+  def genForAllSpecFile(targetDir: File): File = {
+    val forAllSpecFile = new File(targetDir, "ForAllInspectorsSpec.scala")
+    if (!forAllSpecFile.exists || generatorSource.lastModified > forAllSpecFile.lastModified) {
+      genFile(
+        forAllSpecFile,
+        new SingleClassFile(
+          packageName = Some("org.scalatest.inspectors.forall"),
+          importList = List("org.scalatest._",
+            "SharedHelpers._",
+            "FailureMessages.decorateToStringValue",
+            "collection.GenTraversable",
+            "Inspectors._",
+            "java.lang.annotation.AnnotationFormatError",
+            "java.nio.charset.CoderMalfunctionError",
+            "javax.xml.parsers.FactoryConfigurationError",
+            "javax.xml.transform.TransformerFactoryConfigurationError",
+            "org.scalatest.refspec.RefSpec"
+          ),
+          classTemplate = new ClassTemplate {
+            val name = "ForAllInspectorsSpec"
+            override val extendName = Some("RefSpec")
+            override val withList = List.empty
+            override val children = collectionTypes.map {
+              case (name, col, bigCol, emptyCol, lhs) => new ForAllTemplate(name, col, emptyCol, lhs)
+            }
+          }
         )
       )
-
-    override protected def childrenContent =
-      children.map(_.toString).mkString("\n") + "\n"
-
-    override def toString = childrenContent
+    }
+    forAllSpecFile
   }
 
-  def genForAllSpecFile(targetDir: File) {
-    val forAllSpecFile = new File(targetDir, "ForAllInspectorsSpec.scala")
-    genFile(
-      forAllSpecFile,
-      new SingleClassFile(
-        packageName = Some("org.scalatest.inspectors.forall"),
-        importList = List("org.scalatest._",
-          "SharedHelpers._",
-          "FailureMessages.decorateToStringValue",
-          "collection.GenTraversable",
-          "Inspectors._",
-          "java.lang.annotation.AnnotationFormatError",
-          "java.nio.charset.CoderMalfunctionError",
-          "javax.xml.parsers.FactoryConfigurationError",
-          "javax.xml.transform.TransformerFactoryConfigurationError",
-          "org.scalatest.refspec.RefSpec"
-        ),
-        classTemplate = new ClassTemplate {
-          val name = "ForAllInspectorsSpec"
-          override val extendName = Some("RefSpec")
-          override val withList = List.empty
-          override val children = collectionTypes.map {
-            case (name, col, bigCol, emptyCol, lhs) => new ForAllTemplate(name, col, emptyCol, lhs)
-          }
-        }
-      )
-    )
-  }
-
-  def genAsyncForAllSpecFile(targetDir: File) {
-    val forAllSpecFile = new File(targetDir, "AsyncForAllInspectorsSpec.scala")
-    genFile(
-      forAllSpecFile,
-      new SingleClassFile(
-        packageName = Some("org.scalatest.inspectors.forall"),
-        importList = List("org.scalatest._",
-          "SharedHelpers._",
-          "FailureMessages.decorateToStringValue",
-          "collection.GenTraversable",
-          "Inspectors._",
-          "java.lang.annotation.AnnotationFormatError",
-          "java.nio.charset.CoderMalfunctionError",
-          "javax.xml.parsers.FactoryConfigurationError",
-          "javax.xml.transform.TransformerFactoryConfigurationError",
-          "org.scalatest.AsyncFunSpec",
-          "scala.concurrent.Future"
-        ),
-        classTemplate = new ClassTemplate {
-          val name = "AsyncForAllInspectorsSpec"
-          override val extendName = Some("AsyncFunSpec")
-          override val withList = List.empty
-          override val children = collectionTypes.map {
-            case (name, col, bigCol, emptyCol, lhs) => new AsyncForAllTemplate(name, col, emptyCol, lhs)
-          }
-        }
-      )
-    )
-  }
-
-  def genForAtLeastSpecFile(targetDir: File) {
+  def genForAtLeastSpecFile(targetDir: File): File =  {
     val forAtLeastSpecFile = new File(targetDir, "ForAtLeastInspectorsSpec.scala")
-    genFile(
-      forAtLeastSpecFile,
-      new SingleClassFile(
-        packageName = Some("org.scalatest.inspectors.foratleast"),
-        importList = List("org.scalatest._",
-          "SharedHelpers._",
-          "FailureMessages.decorateToStringValue",
-          "collection.GenTraversable",
-          "Inspectors._",
-          "java.lang.annotation.AnnotationFormatError",
-          "java.nio.charset.CoderMalfunctionError",
-          "javax.xml.parsers.FactoryConfigurationError",
-          "javax.xml.transform.TransformerFactoryConfigurationError",
-          "org.scalatest.refspec.RefSpec"
-        ),
-        classTemplate = new ClassTemplate {
-          val name = "ForAtLeastInspectorsSpec"
-          override val extendName = Some("RefSpec")
-          override val withList = List.empty
-          override val children = collectionTypes.map {
-            case (name, col, bigCol, emptyCol, lhs) => new ForAtLeastTemplate(name, col, emptyCol, lhs)
+    if (!forAtLeastSpecFile.exists || generatorSource.lastModified > forAtLeastSpecFile.lastModified) {
+      genFile(
+        forAtLeastSpecFile,
+        new SingleClassFile(
+          packageName = Some("org.scalatest.inspectors.foratleast"),
+          importList = List("org.scalatest._",
+            "SharedHelpers._",
+            "FailureMessages.decorateToStringValue",
+            "collection.GenTraversable",
+            "Inspectors._",
+            "java.lang.annotation.AnnotationFormatError",
+            "java.nio.charset.CoderMalfunctionError",
+            "javax.xml.parsers.FactoryConfigurationError",
+            "javax.xml.transform.TransformerFactoryConfigurationError",
+            "org.scalatest.refspec.RefSpec"
+          ),
+          classTemplate = new ClassTemplate {
+            val name = "ForAtLeastInspectorsSpec"
+            override val extendName = Some("RefSpec")
+            override val withList = List.empty
+            override val children = collectionTypes.map {
+              case (name, col, bigCol, emptyCol, lhs) => new ForAtLeastTemplate(name, col, emptyCol, lhs)
+            }
           }
-        }
+        )
       )
-    )
+    }
+    forAtLeastSpecFile
   }
 
-  def genAsyncForAtLeastSpecFile(targetDir: File) {
-    val forAtLeastSpecFile = new File(targetDir, "AsyncForAtLeastInspectorsSpec.scala")
-    genFile(
-      forAtLeastSpecFile,
-      new SingleClassFile(
-        packageName = Some("org.scalatest.inspectors.foratleast"),
-        importList = List("org.scalatest._",
-          "SharedHelpers._",
-          "FailureMessages.decorateToStringValue",
-          "collection.GenTraversable",
-          "Inspectors._",
-          "java.lang.annotation.AnnotationFormatError",
-          "java.nio.charset.CoderMalfunctionError",
-          "javax.xml.parsers.FactoryConfigurationError",
-          "javax.xml.transform.TransformerFactoryConfigurationError",
-          "org.scalatest.AsyncFunSpec",
-          "scala.concurrent.Future"
-        ),
-        classTemplate = new ClassTemplate {
-          val name = "AsyncForAtLeastInspectorsSpec"
-          override val extendName = Some("AsyncFunSpec")
-          override val withList = List.empty
-          override val children = collectionTypes.map {
-            case (name, col, bigCol, emptyCol, lhs) => new AsyncForAtLeastTemplate(name, col, emptyCol, lhs)
-          }
-        }
-      )
-    )
-  }
-
-  def genForAtMostSpecFile(targetDir: File) {
+  def genForAtMostSpecFile(targetDir: File): File = {
     val forAtMostSpecFile = new File(targetDir, "ForAtMostInspectorsSpec.scala")
-    genFile(
-      forAtMostSpecFile,
-      new SingleClassFile(
-        packageName = Some("org.scalatest.inspectors.foratmost"),
-        importList = List("org.scalatest._",
-          "SharedHelpers._",
-          "FailureMessages.decorateToStringValue",
-          "collection.GenTraversable",
-          "Inspectors._",
-          "java.lang.annotation.AnnotationFormatError",
-          "java.nio.charset.CoderMalfunctionError",
-          "javax.xml.parsers.FactoryConfigurationError",
-          "javax.xml.transform.TransformerFactoryConfigurationError",
-          "org.scalatest.refspec.RefSpec"
-        ),
-        classTemplate = new ClassTemplate {
-          val name = "ForAtMostInspectorsSpec"
-          override val extendName = Some("RefSpec")
-          override val withList = List.empty
-          override val children = collectionTypes.map {
-            case (name, col, bigCol, emptyCol, lhs) => new ForAtMostTemplate(name, col, emptyCol, lhs)
+    if (!forAtMostSpecFile.exists || generatorSource.lastModified > forAtMostSpecFile.lastModified) {
+      genFile(
+        forAtMostSpecFile,
+        new SingleClassFile(
+          packageName = Some("org.scalatest.inspectors.foratmost"),
+          importList = List("org.scalatest._",
+            "SharedHelpers._",
+            "FailureMessages.decorateToStringValue",
+            "collection.GenTraversable",
+            "Inspectors._",
+            "java.lang.annotation.AnnotationFormatError",
+            "java.nio.charset.CoderMalfunctionError",
+            "javax.xml.parsers.FactoryConfigurationError",
+            "javax.xml.transform.TransformerFactoryConfigurationError",
+            "org.scalatest.refspec.RefSpec"
+          ),
+          classTemplate = new ClassTemplate {
+            val name = "ForAtMostInspectorsSpec"
+            override val extendName = Some("RefSpec")
+            override val withList = List.empty
+            override val children = collectionTypes.map {
+              case (name, col, bigCol, emptyCol, lhs) => new ForAtMostTemplate(name, col, emptyCol, lhs)
+            }
           }
-        }
+        )
       )
-    )
+    }
+    forAtMostSpecFile
   }
 
-  def genAsyncForAtMostSpecFile(targetDir: File) {
-    val forAtMostSpecFile = new File(targetDir, "AsyncForAtMostInspectorsSpec.scala")
-    genFile(
-      forAtMostSpecFile,
-      new SingleClassFile(
-        packageName = Some("org.scalatest.inspectors.foratmost"),
-        importList = List("org.scalatest._",
-          "SharedHelpers._",
-          "FailureMessages.decorateToStringValue",
-          "collection.GenTraversable",
-          "Inspectors._",
-          "java.lang.annotation.AnnotationFormatError",
-          "java.nio.charset.CoderMalfunctionError",
-          "javax.xml.parsers.FactoryConfigurationError",
-          "javax.xml.transform.TransformerFactoryConfigurationError",
-          "org.scalatest.AsyncFunSpec",
-          "scala.concurrent.Future"
-        ),
-        classTemplate = new ClassTemplate {
-          val name = "AsyncForAtMostInspectorsSpec"
-          override val extendName = Some("AsyncFunSpec")
-          override val withList = List.empty
-          override val children = collectionTypes.map {
-            case (name, col, bigCol, emptyCol, lhs) => new AsyncForAtMostTemplate(name, col, emptyCol, lhs)
-          }
-        }
-      )
-    )
-  }
-
-  def genForExactlySpecFile(targetDir: File) {
+  def genForExactlySpecFile(targetDir: File): File = {
     val forExactlySpecFile = new File(targetDir, "ForExactlyInspectorsSpec.scala")
-    genFile(
-      forExactlySpecFile,
-      new SingleClassFile(
-        packageName = Some("org.scalatest.inspectors.forexactly"),
-        importList = List("org.scalatest._",
-          "SharedHelpers._",
-          "FailureMessages.decorateToStringValue",
-          "collection.GenTraversable",
-          "Inspectors._",
-          "java.lang.annotation.AnnotationFormatError",
-          "java.nio.charset.CoderMalfunctionError",
-          "javax.xml.parsers.FactoryConfigurationError",
-          "javax.xml.transform.TransformerFactoryConfigurationError",
-          "org.scalatest.refspec.RefSpec"
-        ),
-        classTemplate = new ClassTemplate {
-          val name = "ForExactlyInspectorsSpec"
-          override val extendName = Some("RefSpec")
-          override val withList = List.empty
-          override val children = collectionTypes.map {
-            case (name, col, bigCol, emptyCol, lhs) => new ForExactlyTemplate(name, col, emptyCol, lhs)
+    if (!forExactlySpecFile.exists || generatorSource.lastModified > forExactlySpecFile.lastModified) {
+      genFile(
+        forExactlySpecFile,
+        new SingleClassFile(
+          packageName = Some("org.scalatest.inspectors.forexactly"),
+          importList = List("org.scalatest._",
+            "SharedHelpers._",
+            "FailureMessages.decorateToStringValue",
+            "collection.GenTraversable",
+            "Inspectors._",
+            "java.lang.annotation.AnnotationFormatError",
+            "java.nio.charset.CoderMalfunctionError",
+            "javax.xml.parsers.FactoryConfigurationError",
+            "javax.xml.transform.TransformerFactoryConfigurationError",
+            "org.scalatest.refspec.RefSpec"
+          ),
+          classTemplate = new ClassTemplate {
+            val name = "ForExactlyInspectorsSpec"
+            override val extendName = Some("RefSpec")
+            override val withList = List.empty
+            override val children = collectionTypes.map {
+              case (name, col, bigCol, emptyCol, lhs) => new ForExactlyTemplate(name, col, emptyCol, lhs)
+            }
           }
-        }
+        )
       )
-    )
+    }
+    forExactlySpecFile
   }
 
-  def genAsyncForExactlySpecFile(targetDir: File) {
-    val forExactlySpecFile = new File(targetDir, "AsyncForExactlyInspectorsSpec.scala")
-    genFile(
-      forExactlySpecFile,
-      new SingleClassFile(
-        packageName = Some("org.scalatest.inspectors.forexactly"),
-        importList = List("org.scalatest._",
-          "SharedHelpers._",
-          "FailureMessages.decorateToStringValue",
-          "collection.GenTraversable",
-          "Inspectors._",
-          "java.lang.annotation.AnnotationFormatError",
-          "java.nio.charset.CoderMalfunctionError",
-          "javax.xml.parsers.FactoryConfigurationError",
-          "javax.xml.transform.TransformerFactoryConfigurationError",
-          "org.scalatest.AsyncFunSpec",
-          "scala.concurrent.Future"
-        ),
-        classTemplate = new ClassTemplate {
-          val name = "AsyncForExactlyInspectorsSpec"
-          override val extendName = Some("AsyncFunSpec")
-          override val withList = List.empty
-          override val children = collectionTypes.map {
-            case (name, col, bigCol, emptyCol, lhs) => new AsyncForExactlyTemplate(name, col, emptyCol, lhs)
-          }
-        }
-      )
-    )
-  }
-
-  def genForNoSpecFile(targetDir: File) {
+  def genForNoSpecFile(targetDir: File): File = {
     val forNoSpecFile = new File(targetDir, "ForNoInspectorsSpec.scala")
-    genFile(
-      forNoSpecFile,
-      new SingleClassFile(
-        packageName = Some("org.scalatest.inspectors.forno"),
-        importList = List("org.scalatest._",
-          "SharedHelpers._",
-          "FailureMessages.decorateToStringValue",
-          "collection.GenTraversable",
-          "Inspectors._",
-          "java.lang.annotation.AnnotationFormatError",
-          "java.nio.charset.CoderMalfunctionError",
-          "javax.xml.parsers.FactoryConfigurationError",
-          "javax.xml.transform.TransformerFactoryConfigurationError",
-          "org.scalatest.refspec.RefSpec"
-        ),
-        classTemplate = new ClassTemplate {
-          val name = "ForNoInspectorsSpec"
-          override val extendName = Some("RefSpec")
-          override val withList = List.empty
-          override val children = collectionTypes.map {
-            case (name, col, bigCol, emptyCol, lhs) => new ForNoTemplate(name, col, emptyCol, lhs)
+    if (!forNoSpecFile.exists || generatorSource.lastModified > forNoSpecFile.lastModified) {
+      genFile(
+        forNoSpecFile,
+        new SingleClassFile(
+          packageName = Some("org.scalatest.inspectors.forno"),
+          importList = List("org.scalatest._",
+            "SharedHelpers._",
+            "FailureMessages.decorateToStringValue",
+            "collection.GenTraversable",
+            "Inspectors._",
+            "java.lang.annotation.AnnotationFormatError",
+            "java.nio.charset.CoderMalfunctionError",
+            "javax.xml.parsers.FactoryConfigurationError",
+            "javax.xml.transform.TransformerFactoryConfigurationError",
+            "org.scalatest.refspec.RefSpec"
+          ),
+          classTemplate = new ClassTemplate {
+            val name = "ForNoInspectorsSpec"
+            override val extendName = Some("RefSpec")
+            override val withList = List.empty
+            override val children = collectionTypes.map {
+              case (name, col, bigCol, emptyCol, lhs) => new ForNoTemplate(name, col, emptyCol, lhs)
+            }
           }
-        }
+        )
       )
-    )
+    }
+    forNoSpecFile
   }
 
-  def genAsyncForNoSpecFile(targetDir: File) {
-    val forNoSpecFile = new File(targetDir, "AsyncForNoInspectorsSpec.scala")
-    genFile(
-      forNoSpecFile,
-      new SingleClassFile(
-        packageName = Some("org.scalatest.inspectors.forno"),
-        importList = List("org.scalatest._",
-          "SharedHelpers._",
-          "FailureMessages.decorateToStringValue",
-          "collection.GenTraversable",
-          "Inspectors._",
-          "java.lang.annotation.AnnotationFormatError",
-          "java.nio.charset.CoderMalfunctionError",
-          "javax.xml.parsers.FactoryConfigurationError",
-          "javax.xml.transform.TransformerFactoryConfigurationError",
-          "org.scalatest.AsyncFunSpec",
-          "scala.concurrent.Future"
-        ),
-        classTemplate = new ClassTemplate {
-          val name = "AsyncForNoInspectorsSpec"
-          override val extendName = Some("AsyncFunSpec")
-          override val withList = List.empty
-          override val children = collectionTypes.map {
-            case (name, col, bigCol, emptyCol, lhs) => new AsyncForNoTemplate(name, col, emptyCol, lhs)
-          }
-        }
-      )
-    )
-  }
-
-  def genForBetweenSpecFile(targetDir: File) {
+  def genForBetweenSpecFile(targetDir: File): File = {
     val forBetweenSpecFile = new File(targetDir, "ForBetweenInspectorsSpec.scala")
-    genFile(
-      forBetweenSpecFile,
-      new SingleClassFile(
-        packageName = Some("org.scalatest.inspectors.forbetween"),
-        importList = List("org.scalatest._",
-          "SharedHelpers._",
-          "FailureMessages.decorateToStringValue",
-          "collection.GenTraversable",
-          "Inspectors._",
-          "java.lang.annotation.AnnotationFormatError",
-          "java.nio.charset.CoderMalfunctionError",
-          "javax.xml.parsers.FactoryConfigurationError",
-          "javax.xml.transform.TransformerFactoryConfigurationError",
-          "org.scalatest.refspec.RefSpec"
-        ),
-        classTemplate = new ClassTemplate {
-          val name = "ForBetweenInspectorsSpec"
-          override val extendName = Some("RefSpec")
-          override val withList = List.empty
-          override val children = collectionTypes.map {
-            case (name, col, bigCol, emptyCol, lhs) => new ForBetweenTemplate(name, col, bigCol, emptyCol, lhs)
+    if (!forBetweenSpecFile.exists || generatorSource.lastModified > forBetweenSpecFile.lastModified) {
+      genFile(
+        forBetweenSpecFile,
+        new SingleClassFile(
+          packageName = Some("org.scalatest.inspectors.forbetween"),
+          importList = List("org.scalatest._",
+            "SharedHelpers._",
+            "FailureMessages.decorateToStringValue",
+            "collection.GenTraversable",
+            "Inspectors._",
+            "java.lang.annotation.AnnotationFormatError",
+            "java.nio.charset.CoderMalfunctionError",
+            "javax.xml.parsers.FactoryConfigurationError",
+            "javax.xml.transform.TransformerFactoryConfigurationError",
+            "org.scalatest.refspec.RefSpec"
+          ),
+          classTemplate = new ClassTemplate {
+            val name = "ForBetweenInspectorsSpec"
+            override val extendName = Some("RefSpec")
+            override val withList = List.empty
+            override val children = collectionTypes.map {
+              case (name, col, bigCol, emptyCol, lhs) => new ForBetweenTemplate(name, col, bigCol, emptyCol, lhs)
+            }
           }
-        }
+        )
       )
-    )
+    }
+    forBetweenSpecFile
   }
 
-  def genAsyncForBetweenSpecFile(targetDir: File) {
-    val forBetweenSpecFile = new File(targetDir, "AsyncForBetweenInspectorsSpec.scala")
-    genFile(
-      forBetweenSpecFile,
-      new SingleClassFile(
-        packageName = Some("org.scalatest.inspectors.forbetween"),
-        importList = List("org.scalatest._",
-          "SharedHelpers._",
-          "FailureMessages.decorateToStringValue",
-          "collection.GenTraversable",
-          "Inspectors._",
-          "java.lang.annotation.AnnotationFormatError",
-          "java.nio.charset.CoderMalfunctionError",
-          "javax.xml.parsers.FactoryConfigurationError",
-          "javax.xml.transform.TransformerFactoryConfigurationError",
-          "org.scalatest.AsyncFunSpec",
-          "scala.concurrent.Future"
-        ),
-        classTemplate = new ClassTemplate {
-          val name = "AsyncForBetweenInspectorsSpec"
-          override val extendName = Some("AsyncFunSpec")
-          override val withList = List.empty
-          override val children = collectionTypes.map {
-            case (name, col, bigCol, emptyCol, lhs) => new AsyncForBetweenTemplate(name, col, bigCol, emptyCol, lhs)
-          }
-        }
-      )
-    )
-  }
-
-  def genForEverySpecFile(targetDir: File) {
+  def genForEverySpecFile(targetDir: File): File = {
     val forEverySpecFile = new File(targetDir, "ForEveryInspectorsSpec.scala")
-    genFile(
-      forEverySpecFile,
-      new SingleClassFile(
-        packageName = Some("org.scalatest.inspectors.forevery"),
-        importList = List("org.scalatest._",
-          "SharedHelpers._",
-          "FailureMessages.decorateToStringValue",
-          "collection.GenTraversable",
-          "Inspectors._",
-          "java.lang.annotation.AnnotationFormatError",
-          "java.nio.charset.CoderMalfunctionError",
-          "javax.xml.parsers.FactoryConfigurationError",
-          "javax.xml.transform.TransformerFactoryConfigurationError",
-          "org.scalatest.refspec.RefSpec"
-        ),
-        classTemplate = new ClassTemplate {
-          val name = "ForEveryInspectorsSpec"
-          override val extendName = Some("RefSpec")
-          override val withList = List.empty
-          override val children = collectionTypes.map {
-            case (name, col, bigCol, emptyCol, lhs) => new ForEveryTemplate(name, col, lhs)
+    if (!forEverySpecFile.exists || generatorSource.lastModified > forEverySpecFile.lastModified) {
+      genFile(
+        forEverySpecFile,
+        new SingleClassFile(
+          packageName = Some("org.scalatest.inspectors.forevery"),
+          importList = List("org.scalatest._",
+            "SharedHelpers._",
+            "FailureMessages.decorateToStringValue",
+            "collection.GenTraversable",
+            "Inspectors._",
+            "java.lang.annotation.AnnotationFormatError",
+            "java.nio.charset.CoderMalfunctionError",
+            "javax.xml.parsers.FactoryConfigurationError",
+            "javax.xml.transform.TransformerFactoryConfigurationError",
+            "org.scalatest.refspec.RefSpec"
+          ),
+          classTemplate = new ClassTemplate {
+            val name = "ForEveryInspectorsSpec"
+            override val extendName = Some("RefSpec")
+            override val withList = List.empty
+            override val children = collectionTypes.map {
+              case (name, col, bigCol, emptyCol, lhs) => new ForEveryTemplate(name, col, lhs)
+            }
           }
-        }
+        )
       )
-    )
+    }
+    forEverySpecFile
   }
 
   def genAsyncForEverySpecFile(targetDir: File) {
@@ -3559,90 +3241,93 @@ object GenInspectors {
     )
   }
   
-  def genNestedInspectorsSpecFile(targetDir: File) {
+  def genNestedInspectorsSpecFile(targetDir: File): File = {
     val nestedInspectorsSpecFile = new File(targetDir, "NestedInspectorsSpec.scala")
-    genFile(
-      nestedInspectorsSpecFile, 
-      new SingleClassFile(
-        packageName = Some("org.scalatest.inspectors.nested"), 
-        importList = List("org.scalatest._", 
-                          "SharedHelpers._",
-                          "FailureMessages.decorateToStringValue",
-                          "collection.GenTraversable",
-                          "org.scalatest.refspec.RefSpec"),
-        classTemplate = new ClassTemplate {
-          val name = "NestedInspectorsSpec"
-          override val extendName = Some("RefSpec")
-          override val withList = List("Inspectors")
-          override val children = {
-            
-            val succeededAssertion = "assert(n % 2 == 0)"
-            val failedAssertion = "assert(n % 2 == 1)"
-            
-            val succeededNestedList = List(("forAll", "forAll(l) { n =>\n"), 
-                            ("forAtLeast", "forAtLeast(3, l) { n =>\n"), 
-                            ("forAtMost", "forAtMost(3, l) { n =>\n"), 
-                            ("forExactly", "forExactly(3, l) { n =>\n"), 
-                            ("forNo", "forNo(l) { n =>\n"), 
-                            ("forBetween", "forBetween(2, 4, l) { n =>\n"), 
-                            ("forEvery", "forEvery(l) { n =>\n"))
-            
-            val failedNestedList = List(("forAll", "forAll(l) { n =>\n"), 
-                            ("forAtLeast", "forAtLeast(3, l) { n =>\n"), 
-                            ("forAtMost", "forAtMost(3, l) { n =>\n"), 
-                            ("forExactly", "forExactly(4, l) { n =>\n"), 
-                            ("forNo", "forNo(l) { n =>\n"), 
-                            ("forBetween", "forBetween(2, 4, l) { n =>\n"), 
-                            ("forEvery", "forEvery(l) { n =>\n"))
-            
-            val theList = List(List(2, 4, 6, 8), List(8, 10, 12, 16))
-            
-            // Generate code by templates
-            (List(
-              ("forAll", "forAll(List(List(2, 4, 6), List(8, 10, 12)))", 
-               (name: String, text: String) => if (name != "forNo") succeededAssertion else failedAssertion), 
-              ("forAtLeast", "forAtLeast(2, List(List(2, 4, 6), List(8, 10, 12)))", 
-               (name: String, text: String) => if (name != "forNo") succeededAssertion else failedAssertion), 
-              ("forAtMost", "forAtMost(2, List(List(2, 4, 6), List(8, 10, 12)))", 
-               (name: String, text: String) => if (name != "forNo") succeededAssertion else failedAssertion), 
-              ("forExactly", "forExactly(2, List(List(2, 4, 6), List(8, 10, 12)))", 
-               (name: String, text: String) => if (name != "forNo") succeededAssertion else failedAssertion), 
-              ("forNo", "forNo(List(List(0, 2, 4, 6), List(8, 10, 12, 14)))", 
-               (name: String, text: String) => if (name != "forNo" && name != "forAtMost") failedAssertion else succeededAssertion), 
-              ("forBetween", "forBetween(2, 4, List(List(2, 4, 6), List(8, 10, 12)))", 
-               (name: String, text: String) => if (name != "forNo") succeededAssertion else failedAssertion), 
-              ("forEvery", "forEvery(List(List(2, 4, 6), List(8, 10, 12)))", 
-               (name: String, text: String) => if (name != "forNo") succeededAssertion else failedAssertion)
-            ) flatMap { case (forType, forText, assertFun) => 
-              succeededNestedList map { case (name, text) => 
-                new NestedSucceedTemplate(forType, forText, name, text, assertFun(name, text))
-              }
-            }) ++
-            (List(
-               ("forAll", "forAll(xs)", false,
-                 (name: String, text: String) => if (name != "forNo" && name != "forAtMost") failedAssertion else succeededAssertion),        
-               ("forAtLeast", "forAtLeast(3, xs)", true, 
-                 (name: String, text: String) => if (name != "forNo" && name != "forAtMost") failedAssertion else succeededAssertion), 
-               ("forAtMost", "forAtMost(1, xs)", true, 
-                 (name: String, text: String) => if (name != "forNo" && name != "forAtMost") succeededAssertion else failedAssertion), 
-               ("forExactly", "forExactly(1, xs)", true, 
-                 (name: String, text: String) => if (name != "forNo" && name != "forAtMost") failedAssertion else succeededAssertion), 
-               ("forNo", "forNo(xs)", false, 
-                 (name: String, text: String) => if (name != "forNo" && name != "forAtMost") succeededAssertion else failedAssertion), 
-               ("forBetween", "forBetween(2, 4, xs)", true, 
-                 (name: String, text: String) => if (name != "forNo" && name != "forAtMost") failedAssertion else succeededAssertion), 
-               ("forEvery", "forEvery(xs)", true, 
-                 (name: String, text: String) => if (name != "forNo" && name != "forAtMost") failedAssertion else succeededAssertion)
-            ) flatMap { case (forType, forText, full, assertFun) => 
-                failedNestedList map { case (name, text) => 
-                  new NestedFailedTemplate(theList.toString, forType, forText, name, text, assertFun(name, text), getNestedMessageTemplate(forType, name, full, theList, nestedInspectorsSpecFile.getName))
+    if (!nestedInspectorsSpecFile.exists || generatorSource.lastModified > nestedInspectorsSpecFile.lastModified) {
+      genFile(
+        nestedInspectorsSpecFile,
+        new SingleClassFile(
+          packageName = Some("org.scalatest.inspectors.nested"),
+          importList = List("org.scalatest._",
+            "SharedHelpers._",
+            "FailureMessages.decorateToStringValue",
+            "collection.GenTraversable",
+            "org.scalatest.refspec.RefSpec"),
+          classTemplate = new ClassTemplate {
+            val name = "NestedInspectorsSpec"
+            override val extendName = Some("RefSpec")
+            override val withList = List("Inspectors")
+            override val children = {
+
+              val succeededAssertion = "assert(n % 2 == 0)"
+              val failedAssertion = "assert(n % 2 == 1)"
+
+              val succeededNestedList = List(("forAll", "forAll(l) { n =>\n"),
+                ("forAtLeast", "forAtLeast(3, l) { n =>\n"),
+                ("forAtMost", "forAtMost(3, l) { n =>\n"),
+                ("forExactly", "forExactly(3, l) { n =>\n"),
+                ("forNo", "forNo(l) { n =>\n"),
+                ("forBetween", "forBetween(2, 4, l) { n =>\n"),
+                ("forEvery", "forEvery(l) { n =>\n"))
+
+              val failedNestedList = List(("forAll", "forAll(l) { n =>\n"),
+                ("forAtLeast", "forAtLeast(3, l) { n =>\n"),
+                ("forAtMost", "forAtMost(3, l) { n =>\n"),
+                ("forExactly", "forExactly(4, l) { n =>\n"),
+                ("forNo", "forNo(l) { n =>\n"),
+                ("forBetween", "forBetween(2, 4, l) { n =>\n"),
+                ("forEvery", "forEvery(l) { n =>\n"))
+
+              val theList = List(List(2, 4, 6, 8), List(8, 10, 12, 16))
+
+              // Generate code by templates
+              (List(
+                ("forAll", "forAll(List(List(2, 4, 6), List(8, 10, 12)))",
+                  (name: String, text: String) => if (name != "forNo") succeededAssertion else failedAssertion),
+                ("forAtLeast", "forAtLeast(2, List(List(2, 4, 6), List(8, 10, 12)))",
+                  (name: String, text: String) => if (name != "forNo") succeededAssertion else failedAssertion),
+                ("forAtMost", "forAtMost(2, List(List(2, 4, 6), List(8, 10, 12)))",
+                  (name: String, text: String) => if (name != "forNo") succeededAssertion else failedAssertion),
+                ("forExactly", "forExactly(2, List(List(2, 4, 6), List(8, 10, 12)))",
+                  (name: String, text: String) => if (name != "forNo") succeededAssertion else failedAssertion),
+                ("forNo", "forNo(List(List(0, 2, 4, 6), List(8, 10, 12, 14)))",
+                  (name: String, text: String) => if (name != "forNo" && name != "forAtMost") failedAssertion else succeededAssertion),
+                ("forBetween", "forBetween(2, 4, List(List(2, 4, 6), List(8, 10, 12)))",
+                  (name: String, text: String) => if (name != "forNo") succeededAssertion else failedAssertion),
+                ("forEvery", "forEvery(List(List(2, 4, 6), List(8, 10, 12)))",
+                  (name: String, text: String) => if (name != "forNo") succeededAssertion else failedAssertion)
+              ) flatMap { case (forType, forText, assertFun) =>
+                succeededNestedList map { case (name, text) =>
+                  new NestedSucceedTemplate(forType, forText, name, text, assertFun(name, text))
                 }
-              }
-            )
+              }) ++
+                (List(
+                  ("forAll", "forAll(xs)", false,
+                    (name: String, text: String) => if (name != "forNo" && name != "forAtMost") failedAssertion else succeededAssertion),
+                  ("forAtLeast", "forAtLeast(3, xs)", true,
+                    (name: String, text: String) => if (name != "forNo" && name != "forAtMost") failedAssertion else succeededAssertion),
+                  ("forAtMost", "forAtMost(1, xs)", true,
+                    (name: String, text: String) => if (name != "forNo" && name != "forAtMost") succeededAssertion else failedAssertion),
+                  ("forExactly", "forExactly(1, xs)", true,
+                    (name: String, text: String) => if (name != "forNo" && name != "forAtMost") failedAssertion else succeededAssertion),
+                  ("forNo", "forNo(xs)", false,
+                    (name: String, text: String) => if (name != "forNo" && name != "forAtMost") succeededAssertion else failedAssertion),
+                  ("forBetween", "forBetween(2, 4, xs)", true,
+                    (name: String, text: String) => if (name != "forNo" && name != "forAtMost") failedAssertion else succeededAssertion),
+                  ("forEvery", "forEvery(xs)", true,
+                    (name: String, text: String) => if (name != "forNo" && name != "forAtMost") failedAssertion else succeededAssertion)
+                ) flatMap { case (forType, forText, full, assertFun) =>
+                  failedNestedList map { case (name, text) =>
+                    new NestedFailedTemplate(theList.toString, forType, forText, name, text, assertFun(name, text), getNestedMessageTemplate(forType, name, full, theList, nestedInspectorsSpecFile.getName))
+                  }
+                }
+                  )
+            }
           }
-        }
+        )
       )
-    )
+    }
+    nestedInspectorsSpecFile
   }
 
   def getErrorMessageValuesFunName(colType: String, errorFun: String): String = {
@@ -3672,22 +3357,17 @@ object GenInspectors {
     targetDir
   }
 
-  def genTest(targetBaseDir: File, version: String, scalaVersion: String) {
-    genForAllSpecFile(targetDir(targetBaseDir, "forall"))
-    genAsyncForAllSpecFile(targetDir(targetBaseDir, "forall"))
-    genForAtLeastSpecFile(targetDir(targetBaseDir, "foratleast"))
-    genAsyncForAtLeastSpecFile(targetDir(targetBaseDir, "foratleast"))
-    genForAtMostSpecFile(targetDir(targetBaseDir, "foratmost"))
-    genAsyncForAtMostSpecFile(targetDir(targetBaseDir, "foratmost"))
-    genForExactlySpecFile(targetDir(targetBaseDir, "forexactly"))
-    genAsyncForExactlySpecFile(targetDir(targetBaseDir, "forexactly"))
-    genForNoSpecFile(targetDir(targetBaseDir, "forno"))
-    genAsyncForNoSpecFile(targetDir(targetBaseDir, "forno"))
-    genForBetweenSpecFile(targetDir(targetBaseDir, "forbetween"))
-    genAsyncForBetweenSpecFile(targetDir(targetBaseDir, "forbetween"))
-    genForEverySpecFile(targetDir(targetBaseDir, "forevery"))
-    genAsyncForEverySpecFile(targetDir(targetBaseDir, "forevery"))
-    genNestedInspectorsSpecFile(targetDir(targetBaseDir, "nested"))
+  def genTest(targetBaseDir: File, version: String, scalaVersion: String): Seq[File] =  {
+    Seq(
+      genForAllSpecFile(targetDir(targetBaseDir, "forall")),
+      genForAtLeastSpecFile(targetDir(targetBaseDir, "foratleast")),
+      genForAtMostSpecFile(targetDir(targetBaseDir, "foratmost")),
+      genForExactlySpecFile(targetDir(targetBaseDir, "forexactly")),
+      genForNoSpecFile(targetDir(targetBaseDir, "forno")),
+      genForBetweenSpecFile(targetDir(targetBaseDir, "forbetween")),
+      genForEverySpecFile(targetDir(targetBaseDir, "forevery")),
+      genNestedInspectorsSpecFile(targetDir(targetBaseDir, "nested"))
+    )
   }
   
   def main(args: Array[String]) {
