@@ -15,6 +15,7 @@
  */
 package org.scalatest
 
+import scala.language.implicitConversions
 import Filter.IgnoreTag
 import org.scalactic.Requirements._
 
@@ -41,11 +42,12 @@ import org.scalactic.Requirements._
  * @param tagsToExclude a <code>Set</code> of <code>String</code> tag names to exclude (<em>i.e.</em>, filter out) when filtering tests
  * @param excludeNestedSuites a <code>Boolean</code> to indicate whether to run nested suites
  * @param dynaTags dynamic tags for the filter
+ * @param excludedTestNames <code>Set</code> of <code>String</code> test names to exclude when filtering tests
  *
  * @throws NullArgumentException if either <code>tagsToInclude</code> or <code>tagsToExclude</code> are null
  * @throws IllegalArgumentException if <code>tagsToInclude</code> is defined, but contains an empty set
  */
-final class Filter private (val tagsToInclude: Option[Set[String]], val tagsToExclude: Set[String], val excludeNestedSuites: Boolean, val dynaTags: DynaTags) extends Serializable {
+final class Filter private (val tagsToInclude: Option[Set[String]], val tagsToExclude: Set[String], val excludeNestedSuites: Boolean, val dynaTags: DynaTags, val excludedTestNames: Set[String]) extends Serializable {
 
   requireNonNull(tagsToInclude, tagsToExclude, dynaTags)
 
@@ -110,6 +112,9 @@ final class Filter private (val tagsToInclude: Option[Set[String]], val tagsToEx
     mergeTestTags(List(tags, dynaTestTags, dynaSuiteTags))
   }
 
+  private def testNamesFilteredAsList(testNames: Set[String]): List[String] =
+    testNames.toList.filterNot(excludedTestNames.contains)
+
   /**
    * Filter test names based on their tags.
    *
@@ -147,7 +152,7 @@ final class Filter private (val tagsToInclude: Option[Set[String]], val tagsToEx
 
     verifyPreconditionsForMethods(testNames, tags)
 
-    val testNamesAsList = testNames.toList // to preserve the order
+    val testNamesAsList = testNamesFilteredAsList(testNames) // to preserve the order
     val filtered =
       for {
         testName <- includedTestNames(testNamesAsList, tags)
@@ -163,7 +168,7 @@ final class Filter private (val tagsToInclude: Option[Set[String]], val tagsToEx
     val testTags: Map[String, Set[String]] = mergeTestDynamicTags(tags, suiteId, testNames)
     verifyPreconditionsForMethods(testNames, testTags)
 
-    val testNamesAsList = testNames.toList // to preserve the order
+    val testNamesAsList = testNamesFilteredAsList(testNames) // to preserve the order
     val filtered =
       for {
         testName <- includedTestNames(testNamesAsList, testTags)
@@ -237,7 +242,7 @@ final class Filter private (val tagsToInclude: Option[Set[String]], val tagsToEx
     val tags: Map[String, Set[String]] = mergeTestDynamicTags(testTags, suiteId, testNames)
     verifyPreconditionsForMethods(testNames, tags)
 
-    val testNamesAsList = testNames.toList // to preserve the order
+    val testNamesAsList = testNamesFilteredAsList(testNames) // to preserve the order
     val runnableTests = 
       for {
         testName <- includedTestNames(testNamesAsList, tags)
@@ -259,12 +264,13 @@ object Filter {
  * @param tagsToExclude a <code>Set</code> of <code>String</code> tag names to exclude (<em>i.e.</em>, filter out) when filtering tests
  * @param excludeNestedSuites a <code>Boolean</code> to indicate whether to run nested suites
  * @param dynaTags dynamic tags for the filter
+ * @param excludedTestNames a <code>Set</code> of <code>String</code> test names to exclude when filtering tests
  *
  * @throws NullArgumentException if either <code>tagsToInclude</code> or <code>tagsToExclude</code> are null
  * @throws IllegalArgumentException if <code>tagsToInclude</code> is defined, but contains an empty set
  */
-  def apply(tagsToInclude: Option[Set[String]] = None, tagsToExclude: Set[String] = Set(IgnoreTag), excludeNestedSuites: Boolean = false, dynaTags: DynaTags = DynaTags(Map.empty, Map.empty)) =
-    new Filter(tagsToInclude, tagsToExclude, excludeNestedSuites, dynaTags)
+  def apply(tagsToInclude: Option[Set[String]] = None, tagsToExclude: Set[String] = Set(IgnoreTag), excludeNestedSuites: Boolean = false, dynaTags: DynaTags = DynaTags(Map.empty, Map.empty), excludedTestNames: Set[String] = Set.empty) =
+    new Filter(tagsToInclude, tagsToExclude, excludeNestedSuites, dynaTags, excludedTestNames)
 
   /**
    * Factory method for a default <code>Filter</code>, for which <code>tagsToInclude is <code>None</code>, 

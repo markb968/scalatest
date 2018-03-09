@@ -61,8 +61,6 @@ import org.junit.runner.manipulation.{Filterable, NoTestsRemainException}
  */
 final class JUnitRunner(suiteClass: java.lang.Class[_ <: Suite]) extends org.junit.runner.Runner with Filterable {
 
-  private val excludedTestTag = "org.scalatest.junit.JUnitExcludedWithDynaTags"
-
   private val canInstantiate = Suite.checkForPublicNoArgConstructor(suiteClass)
   require(canInstantiate, "Must pass an org.scalatest.Suite with a public no-arg constructor")
 
@@ -81,11 +79,11 @@ final class JUnitRunner(suiteClass: java.lang.Class[_ <: Suite]) extends org.jun
       }
   }
 
-  private def excludedDynaTags(suite: Suite, testsToRun: Set[String]): Map[String, Map[String, Set[String]]] = suite match {
+  private def excludedTests(suite: Suite, testsToRun: Set[String]): Set[String] = suite match {
     case s if s.nestedSuites.nonEmpty =>
-      suite.nestedSuites.flatMap(excludedDynaTags(_, testsToRun)).toMap
+      suite.nestedSuites.flatMap(excludedTests(_, testsToRun)).toSet
     case _ =>
-      Map(suite.suiteId -> suite.testNames.diff(testsToRun).map(_ -> Set(excludedTestTag)).toMap)
+      suite.testNames.diff(testsToRun)
   }
 
   private def createDescription(suite: Suite, junitFilter: Option[org.junit.runner.manipulation.Filter]): Description = {
@@ -127,10 +125,9 @@ final class JUnitRunner(suiteClass: java.lang.Class[_ <: Suite]) extends org.jun
    */
   def run(notifier: RunNotifier): Unit = {
     try {
-      val testsToRun = description.getChildren.asScala.map(extractTestNamesFromDescription).toSet
 
-      val filter = Filter(tagsToExclude = Set(excludedTestTag),
-        dynaTags = DynaTags(Map.empty, excludedDynaTags(suiteToRun, testsToRun)))
+      val testsToRun = description.getChildren.asScala.map(extractTestNamesFromDescription).toSet
+      val filter = Filter(excludedTestNames = excludedTests(suiteToRun, testsToRun))
 
       // TODO: What should this Tracker be?
       suiteToRun.run(None, Args(new RunNotifierReporter(notifier),
